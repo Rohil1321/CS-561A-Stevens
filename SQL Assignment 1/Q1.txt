@@ -1,0 +1,31 @@
+WITH S_Summary AS
+	(SELECT CUST AS "Customer_Name",
+			MIN(QUANT) AS "Min_Quantity",
+			MAX(QUANT) AS "Max_Quantity",
+			ROUND(AVG(QUANT),2) AS "Avg_Quantity"
+	 FROM SALES
+	 GROUP BY CUST),
+	S_Min AS
+	(SELECT S_Summary."Customer_Name",
+			S_Summary."Min_Quantity",
+			PROD AS "Min_Product",
+			DATE AS "Min_Prod_Pur_Date",
+			STATE AS "State",
+			S_Summary."Max_Quantity",
+			S_Summary."Avg_Quantity"
+	 FROM SALES
+	 JOIN S_Summary ON S_Summary."Customer_Name" = SALES.CUST 
+	 AND S_Summary."Min_Quantity" = SALES.QUANT)
+SELECT S_Min."Customer_Name",
+	S_Min."Min_Quantity",
+	S_Min."Min_Product",
+	S_Min."Min_Prod_Pur_Date",
+	S_Min."State",
+	S_Min."Max_Quantity",
+	S_Max.PROD AS "Max_Product",
+	S_Max.DATE AS "Max_Prod_Pur_Date",
+	S_Max.STATE AS "State",
+	S_Min."Avg_Quantity"
+FROM SALES AS S_Max
+JOIN S_Min ON S_Min."Customer_Name" = S_Max.CUST
+AND S_Min."Max_Quantity" = S_Max.QUANT;

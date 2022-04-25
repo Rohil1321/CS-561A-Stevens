@@ -1,0 +1,50 @@
+with MainT as
+(select cust, 
+ 		prod, 
+ 		avg(quant),
+ 		count(quant),
+ 		sum(quant) 
+ from sales 
+ group by cust, prod),
+
+Q1_T as
+(select cust,
+ 		prod, 
+ 		ROUND(avg(quant),2) as q1_avg 
+ from sales 
+ where month between 1 and 3 group by cust, prod),
+
+Q2_T as
+(select cust, 
+ 		prod, 
+ 		ROUND(avg(quant),2) as q2_avg 
+ from sales 
+ where month between 4 and 6 group by cust, prod),
+
+Q3_T as
+(select cust, 
+ 		prod, 
+ 		ROUND(avg(quant),2) as q3_avg 
+ from sales 
+ where month between 7 and 9 group by cust, prod),
+
+Q4_T as
+(select cust, 
+ 		prod, 
+ 		ROUND(avg(quant),2) as q4_avg 
+ from sales 
+ where month between 10 and 12 group by cust, prod)
+
+select MainT.cust as "Customer",
+		MainT.prod as "Product",
+		Round(Q1_T.q1_avg,2) as "Q1 Average",
+		Round(Q2_T.q2_avg,2) as "Q2 Average",
+		Round(Q3_T.q3_avg,2) as "Q3 Average",
+		Round(Q4_T.q4_avg,2) as "Q4 Average",
+		Round(MainT.avg,2) as "Average",
+		MainT.sum as "Total",
+		MainT.count as "Count"
+		from MainT left join Q1_T on Q1_T.cust=MainT.cust and Q1_T.prod=MainT.prod
+		left join Q2_T on Q2_T.cust=MainT.cust and Q2_T.prod=MainT.prod
+		left join Q3_T on Q3_T.cust=MainT.cust and Q3_T.prod=MainT.prod
+		left join Q4_T on Q4_T.cust=MainT.cust and Q4_T.prod=MainT.prod
