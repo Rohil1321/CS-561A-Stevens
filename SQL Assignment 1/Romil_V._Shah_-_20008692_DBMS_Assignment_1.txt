@@ -1,0 +1,305 @@
+Name :- Romil V. Shah
+CWID :- 20008692
+Assignment :- CS 561 A - DBMS Assignment 1
+Submission Date :- 03/28/2022
+
+1. For each customer, compute the minimum and maximum sales quantities along with the 
+corresponding products (purchased), dates (i.e., dates of those minimum and maximum 
+sales quantities) and the states in which the sale transactions took place. If there are >1 
+occurrences of the min or max, display all. For the same customer, compute the average sales quantity. 
+
+WITH S_Summary AS
+	(SELECT CUST AS "Customer_Name",
+			MIN(QUANT) AS "Min_Quantity",
+			MAX(QUANT) AS "Max_Quantity",
+			ROUND(AVG(QUANT),2) AS "Avg_Quantity"
+	 FROM SALES
+	 GROUP BY CUST),
+	S_Min AS
+	(SELECT S_Summary."Customer_Name",
+			S_Summary."Min_Quantity",
+			PROD AS "Min_Product",
+			DATE AS "Min_Prod_Pur_Date",
+			STATE AS "State",
+			S_Summary."Max_Quantity",
+			S_Summary."Avg_Quantity"
+	 FROM SALES
+	 JOIN S_Summary ON S_Summary."Customer_Name" = SALES.CUST 
+	 AND S_Summary."Min_Quantity" = SALES.QUANT)
+SELECT S_Min."Customer_Name",
+	S_Min."Min_Quantity",
+	S_Min."Min_Product",
+	S_Min."Min_Prod_Pur_Date",
+	S_Min."State",
+	S_Min."Max_Quantity",
+	S_Max.PROD AS "Max_Product",
+	S_Max.DATE AS "Max_Prod_Pur_Date",
+	S_Max.STATE AS "State",
+	S_Min."Avg_Quantity"
+FROM SALES AS S_Max
+JOIN S_Min ON S_Min."Customer_Name" = S_Max.CUST
+AND S_Min."Max_Quantity" = S_Max.QUANT;
+
+
+2. For each year and month combination, find the “slowest” and “busiest” days (those days 
+with the least and the most total sales quantities of products sold) and the corresponding 
+total sales quantities (i.e., SUMs). 
+
+WITH Q1 AS
+	(SELECT YEAR,
+			MONTH,
+			DAY,
+			SUM(QUANT)AS SUM_Q
+		FROM SALES
+		GROUP BY YEAR,
+			MONTH,
+			DAY
+		ORDER BY YEAR,
+			MONTH,
+			SUM_Q),
+	MIN_Q AS
+	(SELECT YEAR,
+			MONTH,
+			MIN(SUM_Q) AS MIN_Q
+		FROM Q1
+		GROUP BY YEAR,
+			MONTH
+		ORDER BY YEAR,
+			MONTH),
+	MAX_Q AS
+	(SELECT YEAR,
+			MONTH,
+			MAX(SUM_Q) AS MAX_Q
+		FROM Q1
+		GROUP BY YEAR,
+			MONTH
+		ORDER BY YEAR,
+			MONTH),
+	MIN_DAY AS
+	(SELECT Q1.YEAR,
+			Q1.MONTH,
+			Q1.DAY,
+			MIQ.MIN_Q
+		FROM Q1
+		JOIN MIN_Q AS MIQ ON Q1.YEAR = MIQ.YEAR
+		AND Q1.MONTH = MIQ.MONTH
+		AND Q1.SUM_Q = MIQ.MIN_Q),
+	MAX_DAY AS
+	(SELECT Q1.YEAR,
+			Q1.MONTH,
+			Q1.DAY,
+			MAQ.MAX_Q
+		FROM Q1
+		JOIN MAX_Q AS MAQ ON Q1.YEAR = MAQ.YEAR
+		AND Q1.MONTH = MAQ.MONTH
+		AND Q1.SUM_Q = MAQ.MAX_Q)
+SELECT MAD.YEAR,
+	MAD.MONTH,
+	MAD.DAY AS MADAY,
+	MAD.MAX_Q,
+	MID.DAY AS MIDAY,
+	MID.MIN_Q
+FROM MAX_DAY AS MAD
+JOIN MIN_DAY AS MID ON MAD.YEAR = MID.YEAR
+AND MAD.MONTH = MID.MONTH;
+
+
+3. For each customer and month, find the “most favorite” product (the product that the 
+customer purchased the most for the given month) and the “least favorite” product (the 
+product that the customer purchased the least for the given month). 
+
+WITH Q1 AS
+	(SELECT CUST,
+			MONTH,
+			PROD,
+			SUM(QUANT)AS SUM_Q
+		FROM SALES
+		GROUP BY CUST,
+			MONTH,
+			PROD
+		ORDER BY CUST,
+			MONTH,
+			PROD),
+	MAX_Q AS
+	(SELECT CUST,
+			MONTH,
+			MAX(SUM_Q) AS MOST
+		FROM Q1
+		GROUP BY CUST,
+			MONTH
+		ORDER BY CUST,
+			MONTH),
+	MIN_Q AS
+	(SELECT CUST,
+			MONTH,
+			MIN(SUM_Q) AS LEAST
+		FROM Q1
+		GROUP BY CUST,
+			MONTH
+		ORDER BY CUST,
+			MONTH),
+	LEAST_FAV AS
+	(SELECT Q1.CUST,
+			Q1.MONTH,
+			Q1.PROD
+		FROM Q1
+		JOIN MIN_Q AS MQ ON Q1.CUST = MQ.CUST
+		AND Q1.MONTH = MQ.MONTH
+		AND Q1.SUM_Q = MQ.LEAST),
+	MOST_FAV AS
+	(SELECT Q1.CUST,
+			Q1.MONTH,
+			Q1.PROD
+		FROM Q1
+		JOIN MAX_Q AS MAQ ON Q1.CUST = MAQ.CUST
+		AND Q1.MONTH = MAQ.MONTH
+		AND Q1.SUM_Q = MAQ.MOST)
+SELECT LF.CUST,
+	LF.MONTH,
+	LF.PROD AS LEAST,
+	MF.PROD AS MOST
+FROM LEAST_FAV AS LF
+JOIN MOST_FAV AS MF ON LF.CUST = MF.CUST
+AND LF.MONTH = MF.MONTH;
+
+
+4. For each customer and product combination, show the average sales quantities for the 
+four quarters (of the year), Q1, Q2, Q3 and Q4 in four separate columns – Q1 being the 
+first 3 months of the year (i.e., January, February and March), and so on – ignore the 
+YEAR component of the dates (i.e., 10/25/2016 is considered the same date as 
+10/25/2017, etc.).  Additionally, compute the average for the “whole” year (again ignoring 
+the YEAR component, meaning simply compute AVG) along with the total quantities 
+(SUM) and the counts (COUNT).
+
+With MainT as
+(select cust, 
+ 		prod, 
+ 		avg(quant),
+ 		count(quant),
+ 		sum(quant) 
+ from sales 
+ group by cust, prod),
+
+Q1_T as
+(select cust,
+ 		prod, 
+ 		ROUND(avg(quant),2) as q1_avg 
+ from sales 
+ where month between 1 and 3 group by cust, prod),
+
+Q2_T as
+(select cust, 
+ 		prod, 
+ 		ROUND(avg(quant),2) as q2_avg 
+ from sales 
+ where month between 4 and 6 group by cust, prod),
+
+Q3_T as
+(select cust, 
+ 		prod, 
+ 		ROUND(avg(quant),2) as q3_avg 
+ from sales 
+ where month between 7 and 9 group by cust, prod),
+
+Q4_T as
+(select cust, 
+ 		prod, 
+ 		ROUND(avg(quant),2) as q4_avg 
+ from sales 
+ where month between 10 and 12 group by cust, prod)
+
+select MainT.cust as "Customer",
+		MainT.prod as "Product",
+		Round(Q1_T.q1_avg,2) as "Q1 Average",
+		Round(Q2_T.q2_avg,2) as "Q2 Average",
+		Round(Q3_T.q3_avg,2) as "Q3 Average",
+		Round(Q4_T.q4_avg,2) as "Q4 Average",
+		Round(MainT.avg,2) as "Average",
+		MainT.sum as "Total",
+		MainT.count as "Count"
+		from MainT left join Q1_T on Q1_T.cust=MainT.cust and Q1_T.prod=MainT.prod
+		left join Q2_T on Q2_T.cust=MainT.cust and Q2_T.prod=MainT.prod
+		left join Q3_T on Q3_T.cust=MainT.cust and Q3_T.prod=MainT.prod
+		left join Q4_T on Q4_T.cust=MainT.cust and Q4_T.prod=MainT.prod
+
+
+5. For each product, output the maximum sales quantities for each quarter in 4 separate 
+columns.  Like the first report, display the corresponding dates (i.e., dates of those 
+corresponding maximum sales quantities). Ignore the YEAR component of the dates (i.e., 
+10/25/2016 is considered the same date as 10/25/2017, etc.).  
+
+WITH S AS
+	(SELECT PROD
+		FROM SALES
+		GROUP BY PROD),
+	Q1 AS
+	(SELECT PROD,
+			MAX(QUANT)AS Q1
+		FROM SALES
+		WHERE MONTH BETWEEN 1 AND 3
+		GROUP BY PROD
+		ORDER BY PROD),
+	Q1_DATE AS
+	(SELECT Q1.PROD,
+			Q1.Q1,
+			S.DATE
+		FROM Q1
+		JOIN SALES AS S ON Q1.PROD = S.PROD
+		AND Q1.Q1 = S.QUANT),
+	Q2 AS
+	(SELECT PROD,
+			MAX(QUANT)AS Q2
+		FROM SALES
+		WHERE MONTH BETWEEN 4 AND 6
+		GROUP BY PROD
+		ORDER BY PROD),
+	Q2_DATE AS
+	(SELECT Q2.PROD,
+			Q2.Q2,
+			S.DATE
+		FROM Q2
+		JOIN SALES AS S ON Q2.PROD = S.PROD
+		AND Q2.Q2 = S.QUANT),
+	Q3 AS
+	(SELECT PROD,
+			MAX(QUANT)AS Q3
+		FROM SALES
+		WHERE MONTH BETWEEN 7 AND 9
+		GROUP BY PROD
+		ORDER BY PROD),
+	Q3_DATE AS
+	(SELECT Q3.PROD,
+			Q3.Q3,
+			S.DATE
+		FROM Q3
+		JOIN SALES AS S ON Q3.PROD = S.PROD
+		AND Q3.Q3 = S.QUANT),
+	Q4 AS
+	(SELECT PROD,
+			MAX(QUANT)AS Q4
+		FROM SALES
+		WHERE MONTH BETWEEN 10 AND 12
+		GROUP BY PROD
+		ORDER BY PROD),
+	Q4_DATE AS
+	(SELECT Q4.PROD,
+			Q4.Q4,
+			S.DATE
+		FROM Q4
+		JOIN SALES AS S ON Q4.PROD = S.PROD
+		AND Q4.Q4 = S.QUANT)
+SELECT S.PROD,
+	Q1.Q1,
+	Q1.DATE,
+	Q2.Q2,
+	Q2.DATE,
+	Q3.Q3,
+	Q3.DATE,
+	Q4.Q4,
+	Q4.DATE
+FROM S
+FULL OUTER JOIN Q1_DATE AS Q1 ON Q1.PROD = S.PROD
+FULL OUTER JOIN Q2_DATE AS Q2 ON Q2.PROD = S.PROD
+FULL OUTER JOIN Q3_DATE AS Q3 ON Q3.PROD = S.PROD
+FULL OUTER JOIN Q4_DATE AS Q4 ON Q4.PROD = S.PROD
+ORDER BY PROD;
