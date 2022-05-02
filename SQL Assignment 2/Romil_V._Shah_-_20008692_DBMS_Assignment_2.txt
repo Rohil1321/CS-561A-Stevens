@@ -1,0 +1,314 @@
+Name :- Romil V. Shah
+CWID :- 20008692
+Assignment :- CS 561 A - DBMS Assignment 2
+Submission Date :- 05/02/2022
+
+SQL Assignment 2
+
+Query 1.
+For each customer, product and month, count the number of sales transactions that were between the previous and the following month's average sales quantities. For January and December, display <NULL> or 0.
+
+WITH Query_T1 AS
+	(SELECT CUST,
+			PROD,
+			MONTH,
+			AVG(QUANT) AS AVG_Quantity
+	 	FROM SALES
+		GROUP BY CUST, 
+	 			 PROD, 
+	 			 MONTH),
+	Query_T2 AS
+	(SELECT S.CUST,
+			S.PROD,
+			S.MONTH,
+			S.QUANT,
+			Query_T1.AVG_Quantity AS AFTER_Q
+		FROM SALES AS S
+		LEFT JOIN Query_T1 ON S.CUST = Query_T1.CUST
+		AND S.PROD = Query_T1.PROD
+		AND S.MONTH = Query_T1.MONTH-1),
+	Query_T3 AS
+	(SELECT Query_T2.CUST,
+			Query_T2.PROD,
+			Query_T2.MONTH,
+			Query_T1.AVG_Quantity AS BEFORE_Q,
+			Query_T2.QUANT,
+			Query_T2.AFTER_Q
+		FROM Query_T2
+		LEFT JOIN Query_T1 ON Query_T2.CUST = Query_T1.CUST
+		AND Query_T2.PROD = Query_T1.PROD
+		AND Query_T2.MONTH = Query_T1.MONTH + 1),
+	Query_T4 AS
+	(SELECT CUST,
+			PROD,
+			MONTH
+		FROM SALES
+		GROUP BY CUST,
+				 PROD,
+				 MONTH),
+	Query_T5 AS
+	(SELECT CUST,
+			PROD,
+			MONTH,
+			COUNT(QUANT) AS COUNT_Q
+		FROM Query_T3
+		WHERE QUANT BETWEEN BEFORE_Q AND AFTER_Q
+			OR QUANT BETWEEN AFTER_Q AND BEFORE_Q
+		GROUP BY CUST,
+				 PROD,
+				 MONTH)
+SELECT Query_T4.CUST AS "Customer",
+	   Query_T4.PROD AS "Product",
+	   Query_T4.MONTH AS "Month",
+	   Query_T5.COUNT_Q AS "Sales_Count_Between_Averages"
+	FROM Query_T4
+	LEFT JOIN Query_T5 ON Query_T4.CUST = Query_T5.CUST
+		  AND Query_T4.PROD = Query_T5.PROD
+		  AND Query_T4.MONTH = Query_T5.MONTH
+	ORDER BY Query_T4.CUST,
+			 Query_T4.PROD,
+			 Query_T4.MONTH
+
+
+
+Query 2.
+For customer and product, show the average sales before, during and after each month (e.g., for February, show average sales of January and March. For “before” January and “after” December, display <NULL>. The “YEAR” attribute is not considered for this query – for example, both January of 2017 and January of 2018 are considered January regardless of the year.
+
+WITH Query_T1 AS
+	(SELECT CUST,
+			PROD,
+			MONTH,
+			Round(AVG(QUANT), 0) AS AVG_Quantity
+	 	FROM SALES
+		GROUP BY CUST,
+				 PROD,
+				 MONTH),
+	Query_T2 AS
+	(SELECT Query_T1.CUST,
+			Query_T1.PROD,
+			Query_T1.MONTH,
+			Query_T1.AVG_Quantity,
+			Query_TT1.AVG_Quantity AS AFTER_AVERAGE
+		FROM Query_T1
+		LEFT JOIN Query_T1 AS Query_TT1 ON Query_T1.CUST = Query_TT1.CUST
+			  AND Query_T1.PROD = Query_TT1.PROD
+			  AND Query_T1.MONTH = Query_TT1.MONTH-1),
+	Query_T3 AS
+	(SELECT Query_T1.CUST,
+			Query_T1.PROD,
+			Query_T1.MONTH,
+			Query_T1.AVG_Quantity,
+			Query_TT1.AVG_Quantity AS BEFORE_AVERAGE
+		FROM Query_T1
+		LEFT JOIN Query_T1 AS Query_TT1 ON Query_T1.CUST = Query_TT1.CUST
+			  AND Query_T1.PROD = Query_TT1.PROD
+			  AND Query_T1.MONTH = Query_TT1.MONTH + 1)
+SELECT Query_T2.CUST AS "CUSTOMER",
+	   Query_T2.PROD AS "PRODUCT",
+	   Query_T2.MONTH AS "MONTH",
+	   BEFORE_AVERAGE AS "BEFORE_AVG",
+	   Query_T2.AVG_Quantity AS "DURING_AVG",
+	   AFTER_AVERAGE AS "AFTER_AVG"
+	FROM Query_T2
+	JOIN Query_T3 ON Query_T2.CUST = Query_T3.CUST
+	 AND Query_T2.PROD = Query_T3.PROD
+	 AND Query_T2.MONTH = Query_T3.MONTH
+	ORDER BY Query_T2.CUST,
+			 Query_T2.PROD,
+			 Query_T2.MONTH
+
+
+
+Query 3.
+For each customer, product and state combination, compute (1) the product’s average sale of this customer for the state (i.e., the simple AVG for the group-by attributes – this is the easy part), (2) the average sale of the product and the state but for all of the other customers, (3) the customer’s average sale for the given state, but for all of the other products, and (4) the customer’s average sale for the given product, but for all of the other states.
+
+WITH Query_T1 AS
+	(SELECT CUST,
+			PROD,
+			STATE,
+			Round(AVG(QUANT), 0) AS AVG_Quantity
+		FROM SALES
+		GROUP BY CUST,
+				 PROD,
+				 STATE),
+	Query_T2 AS
+	(SELECT Query_T1.CUST,
+			Query_T1.PROD,
+			Query_T1.STATE,
+			Round(AVG(S.QUANT), 0) AS CAVG
+		FROM Query_T1
+		JOIN SALES AS S ON Query_T1.CUST != S.CUST
+					   AND Query_T1.PROD = S.PROD
+					   AND Query_T1.STATE = S.STATE
+		GROUP BY Query_T1.CUST,
+				 Query_T1.PROD,
+				 Query_T1.STATE),
+	Query_T3 AS
+	(SELECT Query_T1.CUST,
+			Query_T1.PROD,
+			Query_T1.STATE,
+			Round(AVG(S.QUANT), 0) AS PAVG
+		FROM Query_T1
+		JOIN SALES AS S ON Query_T1.CUST = S.CUST
+					   AND Query_T1.PROD != S.PROD
+					   AND Query_T1.STATE = S.STATE
+		GROUP BY Query_T1.CUST,
+				 Query_T1.PROD,
+				 Query_T1.STATE),
+	Query_T4 AS
+	(SELECT Query_T1.CUST,
+			Query_T1.PROD,
+			Query_T1.STATE,
+			Round(AVG(S.QUANT), 0) AS SAVG
+		FROM Query_T1
+		JOIN SALES AS S ON Query_T1.CUST = S.CUST
+					   AND Query_T1.PROD = S.PROD
+					   AND Query_T1.STATE != S.STATE
+		GROUP BY Query_T1.CUST,
+				 Query_T1.PROD,
+				 Query_T1.STATE)
+SELECT Query_T1.CUST AS "CUSTOMER",
+	   Query_T1.PROD AS "PRODUCT",
+	   Query_T1.STATE AS "STATE",
+	   Query_T1.AVG_Quantity AS "PROD_AVG",
+	   Query_T2.CAVG AS "OTHER_CUST_AVG",
+	   Query_T3.PAVG AS "OTHER_PROD_AVG",
+	   Query_T4.SAVG AS "OTHER_STATE_AVG"
+	FROM Query_T1
+	FULL OUTER JOIN Query_T2 ON Query_T1.CUST = Query_T2.CUST
+				AND Query_T1.PROD = Query_T2.PROD
+				AND Query_T1.STATE = Query_T2.STATE
+	FULL OUTER JOIN Query_T3 ON Query_T1.CUST = Query_T3.CUST
+				AND Query_T1.PROD = Query_T3.PROD
+				AND Query_T1.STATE = Query_T3.STATE
+	FULL OUTER JOIN Query_T4 ON Query_T1.CUST = Query_T4.CUST
+				AND Query_T1.PROD = Query_T4.PROD
+				AND Query_T1.STATE = Query_T4.STATE
+	Order By Query_T1.CUST, 
+		 	 Query_T1.PROD,
+		 	 Query_T1.STATE
+
+
+
+Query 4.
+Find the customers with the top 3 highest quantities purchased in New Jersey (NJ). Show the customer’s name, the quantity and product purchased, and the date they purchased it. If there are ties, show all – refer to the sample output below.
+
+WITH QUERY_T1 AS
+	(SELECT CUST,
+			MAX(QUANT) AS MAX1
+		FROM SALES
+		WHERE STATE = 'NJ'
+		GROUP BY CUST
+		ORDER BY CUST),
+	QUERY_T2 AS
+	(SELECT SALES.CUST,
+			MAX(QUANT) AS MAX2
+		FROM SALES
+		JOIN QUERY_T1 ON QUERY_T1.CUST = SALES.CUST
+		WHERE STATE = 'NJ'
+			AND QUANT != MAX1
+		GROUP BY SALES.CUST
+		ORDER BY SALES.CUST),
+	QUERY_T3 AS
+	(SELECT SALES.CUST,
+			MAX(QUANT) AS MAX3
+		FROM SALES
+		JOIN QUERY_T1 ON QUERY_T1.CUST = SALES.CUST
+		JOIN QUERY_T2 ON QUERY_T2.CUST = SALES.CUST
+		WHERE STATE = 'NJ'
+			AND QUANT != MAX1
+			AND QUANT != MAX2
+		GROUP BY SALES.CUST
+		ORDER BY SALES.CUST),
+	QUERY_T4 AS
+	(SELECT SALES.CUST,
+			SALES.QUANT,
+			SALES.PROD,
+			SALES.DATE
+		FROM SALES
+		JOIN QUERY_T1 ON QUERY_T1.CUST = SALES.CUST
+			AND SALES.QUANT = MAX1
+			AND STATE = 'NJ'),
+	QUERY_T5 AS
+	(SELECT SALES.CUST,
+			SALES.QUANT,
+			SALES.PROD,
+			SALES.DATE
+		FROM SALES
+		JOIN QUERY_T2 ON QUERY_T2.CUST = SALES.CUST
+			AND SALES.QUANT = MAX2
+			AND STATE = 'NJ'),
+	QUERY_T6 AS
+	(SELECT SALES.CUST,
+			SALES.QUANT,
+			SALES.PROD,
+			SALES.DATE
+		FROM SALES
+		JOIN QUERY_T3 ON QUERY_T3.CUST = SALES.CUST
+			AND SALES.QUANT = MAX3
+			AND STATE = 'NJ')
+SELECT CUST AS "CUSTOMER",
+	   QUANT AS "QUANTITY",
+	   PROD AS "PRODUCT",
+	   DATE AS "DATE"
+	FROM QUERY_T4
+UNION
+SELECT CUST AS "CUSTOMER",
+	   QUANT AS "QUANTITY",
+	   PROD AS "PRODUCT",
+	   DATE AS "DATE"
+	FROM QUERY_T5
+UNION
+SELECT CUST AS "CUSTOMER",
+	   QUANT AS "QUANTITY",
+	   PROD AS "PRODUCT",
+	   DATE AS "DATE"
+	FROM QUERY_T6
+	ORDER BY "CUSTOMER",
+		 "QUANTITY",
+		 "PRODUCT",
+		 "DATE"
+
+
+
+Query 5.
+For customer and product, find the month by which time, 1/3 of the sales quantities have been purchased. Again, for this query, the “YEAR” attribute is not considered. Another way to view this problem (as in problem #2 above) is to pretend all 500 rows of sales data are from the same year.
+
+WITH QUERY_T1 AS
+	(SELECT CUST,
+			PROD,
+			MONTH,
+			SUM(QUANT) AS SUM_Q
+		FROM SALES
+		GROUP BY CUST,
+				 PROD,
+				 MONTH),
+	QUERY_T2 AS
+	(SELECT QUERY_T1.CUST,
+			QUERY_T1.PROD,
+			QUERY_T1.MONTH,
+			SUM(TQUERY_T1.SUM_Q) AS CSUM_Q
+		FROM QUERY_T1,
+			QUERY_T1 AS TQUERY_T1
+		WHERE QUERY_T1.CUST = TQUERY_T1.CUST
+			AND QUERY_T1.PROD = TQUERY_T1.PROD
+			AND QUERY_T1.MONTH >= TQUERY_T1.MONTH
+		GROUP BY QUERY_T1.CUST,
+			QUERY_T1.PROD,
+			QUERY_T1.MONTH),
+	QUERY_T3 AS
+	(SELECT CUST,
+			PROD,
+			ROUND(SUM(SUM_Q) / 3, 0) AS TSUM_Q
+		FROM QUERY_T1
+		GROUP BY CUST,
+				 PROD)
+SELECT QUERY_T2.CUST AS "CUSTOMER",
+	   QUERY_T2.PROD AS "PRODUCT",
+	   MIN(QUERY_T2.MONTH) AS "1/3 PURCHASED BY MONTH"
+	FROM QUERY_T2, QUERY_T3
+	WHERE QUERY_T2.CUST = QUERY_T3.CUST
+	  AND QUERY_T2.PROD = QUERY_T3.PROD
+	  AND QUERY_T2.CSUM_Q >= QUERY_T3.TSUM_Q
+	GROUP BY QUERY_T2.CUST,
+			 QUERY_T2.PROD
